@@ -1,0 +1,224 @@
+buildscript {
+    ext {
+        kotlinVersion = '1.0.4'
+        port = 18080                //application listening port
+        gebVersion = "0.13.1"
+        seleniumVersion = "2.52.0"
+        drivers = ['htmlunit']
+    }
+
+    repositories {
+        jcenter()
+    }
+
+    dependencies {
+        classpath 'org.asciidoctor:asciidoctorj-pdf:1.5.0-alpha.11'
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion"
+    }
+}
+
+plugins {
+    id "org.standardout.versioneye" version "1.4.0"
+    id "com.github.hierynomus.license" version "0.13.1"
+
+    id "com.github.lkishalmi.gatling" version "0.4.1"
+    id "com.bmuschko.docker-remote-api" version "3.0.12"
+    id "org.asciidoctor.convert" version "1.5.3"
+
+    id "com.moowork.node" version "1.1.1"
+    // id "com.moowork.grunt" version "1.1.1"
+    // id "com.moowork.gulp" version "1.1.1"
+}
+
+apply plugin: 'application'
+apply plugin: 'war'
+apply plugin: 'java'
+apply plugin: 'kotlin'
+apply plugin: 'groovy'
+apply plugin: 'scala'
+
+apply from: 'scripts/jenkins.gradle'
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+repositories {
+    mavenLocal()
+    jcenter()
+}
+
+dependencies {
+    providedCompile "org.jetbrains.kotlin:kotlin-stdlib:$kotlinVersion"
+    providedCompile "org.jetbrains.kotlin:kotlin-reflect:$kotlinVersion"
+
+    providedCompile 'fish.payara.extras:payara-micro:4.1.1.164'
+
+    testCompile 'org.codehaus.groovy:groovy-all:2.4.7'
+    testCompile 'org.spockframework:spock-core:1.1-groovy-2.4-rc-1'
+    testRuntime 'cglib:cglib-nodep:3.2.4'
+    testRuntime 'org.objenesis:objenesis:2.4'
+    testRuntime 'com.athaydes:spock-reports:1.2.12'
+
+    testCompile 'io.rest-assured:rest-assured:3.0.1'
+
+    // If using Spock, need to depend on geb-spock
+    testCompile "org.gebish:geb-spock:$gebVersion"
+    testCompile "org.gebish:geb-core:$gebVersion"
+    testCompile "org.gebish:geb-junit4:$gebVersion"
+
+    // add different drivers to test scope
+    drivers.each { driver ->
+        testCompile "org.seleniumhq.selenium:selenium-$driver-driver:$seleniumVersion"
+    }
+
+    testRuntime 'org.slf4j:slf4j-simple:1.7.13'
+
+    testCompile "org.scala-lang:scala-library:2.11.8"
+
+    // Structurizr
+    testCompile 'com.structurizr:structurizr-annotations:1.0.0-RC2'
+    testCompile 'com.structurizr:structurizr-core:1.0.0-RC2'
+}
+
+// copy all resources into correct classes folder
+sourceSets {
+    test {
+        output.resourcesDir = 'build/classes/test'
+    }
+    main {
+        output.resourcesDir = 'build/classes/main'
+    }
+}
+
+test {
+    exclude '**/*Architecture*'
+    exclude '**/*Integration*'
+    exclude '**/*Page*'
+    exclude '**/*Performance*'
+
+    systemProperty "geb.build.reportsDir", "$reporting.baseDir/geb"
+    systemProperty "geb.build.baseUrl", "http://localhost:${port}"
+    systemProperty "geb.env", System.getProperty('geb.env', 'HtmlUnit')
+
+    reports {
+        junitXml.enabled = true
+        html.enabled = true
+    }
+}
+
+mainClassName = 'everything.as.code.BookApplication'
+
+distributions {
+    main {
+        contents {
+            from(war) {
+                into "web"
+            }
+        }
+    }
+}
+
+// set appropriate KumuluzEE listening port when application:run
+tasks.withType(JavaExec) {
+    environment = ['PORT': port]
+}
+
+gatling {
+    toolVersion = '2.2.2'
+    jvmArgs = ['-server', '-Xmx512M', '-Djava.net.preferIPv4Stack=true', "-Djava.net.preferIPv6Addresses=false"]
+    simulations = {
+        include "**/*PerformanceTest.scala"
+    }
+}
+
+docker {
+    // use this for Docker for Mac
+    // url = 'unix:///var/run/docker.sock'
+
+    // use this for Docker for Windows or Minikube
+    // url = System.env.DOCKER_HOST ?: 'http://localhost:2375'
+    // certPath = System.env.DOCKER_CERT_PATH ? file(System.env.DOCKER_CERT_PATH) : file("${System.getProperty('user.home')}/.docker/machine/machines/default")
+
+    registryCredentials {
+        url = 'qaware-oss-docker-registry.bintray.io'
+        username = project.hasProperty('bintrayUsername') ? project.bintrayUsername : 'qaware-oss'
+        password = project.hasProperty('bintrayApiKey') ? project.bintrayApiKey : ''
+        email = 'qaware-oss@qaware.de'
+    }
+}
+
+
+import com.bmuschko.gradle.docker.tasks.DockerInfo
+import com.bmuschko.gradle.docker.tasks.DockerVersion
+import com.bmuschko.gradle.docker.tasks.image.DockerBuildImage
+import com.bmuschko.gradle.docker.tasks.image.DockerPushImage
+import com.bmuschko.gradle.docker.tasks.image.DockerRemoveImage
+
+task dockerInfo(type: DockerInfo) {}
+task dockerVersion(type: DockerVersion) {}
+
+task buildDockerImage(type: DockerBuildImage, dependsOn: 'assemble') {
+    inputDir = projectDir
+    noCache = false
+    remove = true
+    tag = "$project.name:$version"
+}
+
+task removeDockerImage(type: DockerRemoveImage) {
+    imageId = "$project.name:$version"
+    force = true
+}
+
+task pushDockerImage(type: DockerPushImage) {
+    imageName = "qaware-oss-docker-registry.bintray.io/lreimer/$project.name:$version"
+}
+
+node {
+    // Version of node to use.
+    version = '0.11.10'
+
+    // Version of npm to use.
+    npmVersion = '2.1.5'
+
+    // Version of Yarn to use.
+    yarnVersion = '0.16.1'
+
+    // If true, it will download node using above parameters.
+    // If false, it will try to use globally installed node.
+    download = true
+}
+
+asciidoctorj {
+    version = '1.5.4.1'
+}
+
+asciidoctor {
+    sourceDir 'src/docs/architecture'
+    resources {
+        from('src/docs/architecture') {
+            include 'images/**/*.png'
+            include 'images/**/*.jpg'
+        }
+    }
+    backends 'html5', 'pdf'
+    options doctype: 'article'
+    attributes 'source-highlighter': 'coderay'
+}
+
+versioneye {
+    // dependencies = transitive
+    includeSubProjects = true
+    includePlugins = false
+    exclude 'testCompile', 'testRuntime'
+}
+
+license {
+    skipExistingHeaders = true
+    header rootProject.file('LICENSE')
+    includes(["**/*.java", "**/*.kt", "**/*.groovy", "**/*.scala"])
+    mapping {
+        java = 'SLASHSTAR_STYLE'
+        kt = 'SLASHSTAR_STYLE'
+        groovy = 'SLASHSTAR_STYLE'
+    }
+}

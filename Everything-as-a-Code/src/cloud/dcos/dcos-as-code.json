@@ -1,0 +1,41 @@
+{
+  "id": "everything-as-code",
+  "instances": 1,
+  "cpus": 0.25,
+  "mem": 256,
+  "container": {
+    "type": "DOCKER",
+    "docker": {
+      "image": "qaware-oss-docker-registry.bintray.io/lreimer/everything-as-code:1.2.3",
+      "network": "BRIDGE",
+      "portMappings": [
+        {
+          "hostPort": 18080,
+          "containerPort": 18080,
+          "protocol": "tcp",
+          "servicePort": 18080
+        }
+      ]
+    }
+  },
+  "env": {
+    "PORT": 18080
+  },
+  "healthChecks": [
+    {
+      "protocol": "HTTP",
+      "path": "/index.html",
+      "intervalSeconds": 10,
+      "portIndex": 0,
+      "timeoutSeconds": 10,
+      "maxConsecutiveFailures": 3
+    }
+  ],
+  "labels": {
+    "cloudcontrol.enabled": "true",
+    "cloudcontrol.index": "2",
+    "LAUNCHPAD_ENABLE": "true",
+    "LAUNCHPAD_COLOR": "PURPLE",
+    "LAUNCHPAD_ROW": 5
+  }
+}

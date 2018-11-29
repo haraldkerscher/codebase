@@ -1,0 +1,165 @@
+image:https://travis-ci.org/lreimer/everything-as-code.svg?branch=master["Build Status", link="https://travis-ci.org/lreimer/everything-as-code"]
+image:https://badge.waffle.io/lreimer/everything-as-code.png?label=ready&title=Ready["Stories in Ready", link="http://waffle.io/lreimer/everything-as-code"]
+image:https://badge.waffle.io/lreimer/everything-as-code.png?label=in%20progress&title=In%20Progress["Stories in Progress", link="http://waffle.io/lreimer/everything-as-code"]
+image:https://www.versioneye.com/user/projects/57b0d490ba81b400169291b5/badge.svg?style=flat-square["Dependency Status", link="https://www.versioneye.com/user/projects/57b0d490ba81b400169291b5"]
+image:https://img.shields.io/badge/license-MIT%20License-blue.svg["MIT License", link=https://github.com/lreimer/everything-as-code/blob/master/LICENSE"]
+
+= Everything-as-code. A polyglot experiment.
+
+As modern, agile developers we love to master several different languages all at once to be 100% productive.
+We define our development environments using Gradle. We implement our software in Java, Kotlin or another JVM
+based language. We use Groovy or Scala to test our code at different layers. We construct the build pipelines
+for our software using a Groovy DSL or JSON. We use YAML and Python to describe the infrastructure and the
+deployment for our applications. We document our architectures using AsciiDoc and JRuby. Welcome to Babel!
+Making the right choice in this multitude of available languages is not easy. This polyglot example project is
+a highly opinionated journey into the modern era of software industrialization.
+
+== SEU-as-code
+
+This project uses SEU-as-code to build the software development environment for this project using Gradle. The definition
+is contained in the `build.seu` build file. To bootstrap the SEU, you need to issue the following command:
+```bash
+$ ./gradlew -b build.seu bootstrapSeu
+```
+
+== Build-as-code
+
+There are quite some build tools around, every one with its own strengths. Usually I would have used Maven
+to build this kind of project. But Gradle beats Maven by far. It is way more flexible since you can use it
+in a declarative as well as imperative way. It is super fast, since it only executes the really required tasks
+in case of changes. It is highly customizable, via scripts and plugins. And it is short.
+
+```bash
+$ ./gradlew clean build
+```
+
+== Main-as-code
+
+What is your favourite primary language? Java is not a bad choice at all. But Kotlin is a serious contender.
+Highly expressive, easy to learn for a Java developer. Stable.
+
+== Test-as-code
+
+This project uses Groovy and Spock for Unit and Integration testing, and Scala with Gatling for Performance testing.
+Spock is JUnit, Hamcrest and Mockito on steroids. Plus a super slick Groovy based DSL. Writing tests like this is fun.
+Also the integration with other well-known frameworks such as RestAssured is very easy and expressive with Spock.
+
+We use Scala and Gatling as a framework to implement the load tests for this project. Gatling has an
+expressive DSL, any kind of load test can be expressed easily, not matter if it is a REST-stype project
+or a JSF-based UI project.
+
+In order to run the integration and performance tests you currently have to start the application:
+```bash
+$ ./gradlew run
+$ ./gradlew gatlingRun
+```
+
+== Pipeline-as-code
+
+We use the latest Jenkins CI server together with the new Pipeline plugin to programmatically define
+the build pipeline for the project. First, we start a Jenkins instance a Docker container:
+```bash
+$ docker run --name jenkinsci -p 8080:8080 -p 50000:50000 -v ~/Jenkins:/var/jenkins_home jenkinsci/jenkins
+```
+
+Next, we add a `Jenkinsfile` to our source repository. This file defines the build pipeline with the
+individual steps and stages.
+
+== Infrastructure-as-code
+
+First, we are going to package our micro service application in a Docker container. You can do this on the command
+line or using a suitable Gradle plugin.
+```bash
+$ ./gradlew buildDockerImage
+$ ./gradlew tagDockerImage pushDockerImage
+```
+
+For easy local deployment of the Docker image you can either start a container manually or use Docker Compose
+to manage the lifecycle.
+```bash
+$ docker-compose -d up
+$ docker-compose down
+```
+
+Sometimes it is useful to have a separate local VM you can use to spin up a Docker Swarm cluster with CoreOS, or
+maybe only have a box that you can use as an Ansible control node. We use Vagrant and Ruby for this kind of job.
+```bash
+$ vagrant up
+```
+
+In the Vagrant box we now have an Ansible installation for easy code based infrastructure provisioning.
+You can log into the box using SSH and then execute the Ansible playbooks.
+```bash
+$ vagrant ssh
+$ cd provisioning
+$ ansible-playbook -i development jenkinsci.yml
+```
+
+To deploy our microservice to DC/OS and Marathon you need a cluster. You can create a cluster
+locally using Vagrant or using a cloud provider. Maybe use something like Terraform to create it.
+Then you can create an app in Marathon using:
+```bash
+$ dcos marathon app add src/cloud/dcos-as-code.json
+```
+
+To deploy our microservice to Kubernetes you need a K8S cluster. You can create a cluster
+locally using Vagrant or by using a cloud provider. Maybe use something like Terraform to create it.
+Then you can create a deployment using:
+```bash
+$ kubectl create -f src/cloud/k8s-as-code.yml
+```
+
+== Documentation-as-code
+
+We want our technical documentation close to the actual source code. We do not want to use a specific editor
+such as Word. The format needs to be lightweight and developer friendly. We want to version control and diff
+our documentation. Good choices are Markdown and Asciidoc.
+
+With AsciidoctorJ we can easily run Asciidoctor on the JVM using JRuby. There also is an excellent Gradle plugin
+available, as well as IDEs for a little more comfort such as IntelliJ or Atom. As an example we used the arc42
+documentation template. To generate the document in HTML5 and PDF run:
+```bash
+$ ./gradlew -t ascii
+```
+
+== Presentation-as-code
+
+The slides for the initial JavaOne 2016 presentation are written in Markdown. There are several rendering alternatives available.
+Or if you are a JavaScript fan you can use Reveal.js as a framework to program your slides.
+
+```markdown
+---
+## [fit] These slides are written in Markdown.
+
+- This is for real programmers! :smiley:
+- Several open source projects available
+
+---
+```
+
+== References
+
+- http://seu-as-code.io[Lightweight Developer Provisioning with Gradle]
+- https://gradle.org[Gradle Build Tool]
+- https://kotlinlang.org/docs/reference/[Kotlin Language Reference]
+- http://www.groovy-lang.org/documentation.html[Groovy Language Documentation]
+- http://spockframework.org/spock/docs/[Spcok Framework Reference Documentation]
+- http://gatling.io/docs/2.2.2/[Gatling Documentation]
+- http://scala-lang.org/documentation/[Scala Language Documentation]
+- https://jenkins.io/doc/pipeline/[Getting started with Jenkins Pipeline]
+- https://www.vagrantup.com/docs/[Vagrant Documentation]
+- http://kubernetes.io/docs/[Kubernetes Documentation]
+- https://mesosphere.github.io/marathon/docs/[DC/OS Marathon Documentation]
+- https://docs.ansible.com/ansible/intro.html[Ansible Documentation]
+- https://github.com/asciidoctor/asciidoctorj[AsciidoctorJ]
+- https://arc42.github.io[Arc42 Architecture Documentation]
+
+
+== Maintainer
+
+M.-Leander Reimer (@lreimer), <mario-leander.reimer@qaware.de>
+
+== License
+
+The software and documentation is provided under the MIT open source license,
+read the `LICENSE` file for details.
